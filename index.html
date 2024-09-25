@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WebSocket Chat</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f4f4f4;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+
+    #chatContainer {
+      width: 100%;
+      max-width: 500px;
+      background-color: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    }
+
+    #chatHeader {
+      text-align: center;
+      margin-bottom: 10px;
+    }
+
+    #messages {
+      height: 300px;
+      overflow-y: scroll;
+      border: 1px solid #ddd;
+      padding: 10px;
+      background-color: #fff;
+      margin-bottom: 10px;
+    }
+
+    #messages .message {
+      margin: 5px 0;
+      padding: 10px;
+      border-radius: 8px;
+      max-width: 80%;
+      word-wrap: break-word;
+    }
+
+    #messages .message.sent {
+      background-color: #007bff;
+      color: white;
+      text-align: right;
+      margin-left: auto;
+    }
+
+    #messages .message.received {
+      background-color: #f1f0f0;
+      color: black;
+      text-align: left;
+    }
+
+    #inputArea {
+      display: flex;
+      margin-bottom: 10px;
+    }
+
+    #inputArea input {
+      flex: 1;
+      padding: 10px;
+      font-size: 16px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      margin-right: 10px;
+    }
+
+    #inputArea button {
+      padding: 10px;
+      font-size: 16px;
+      background-color: #007bff;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    #inputArea button:hover {
+      background-color: #0056b3;
+    }
+
+    #usernameInput {
+      width: 100%;
+      padding: 10px;
+      font-size: 16px;
+      margin-bottom: 10px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div id="chatContainer">
+    <h2 id="chatHeader">WebSocket Chat</h2>
+
+    <!-- 사용자 이름 입력 -->
+    <input type="text" id="usernameInput" placeholder="Enter your username" />
+
+    <!-- 메시지 박스 -->
+    <div id="messages"></div>
+
+    <!-- 메시지 입력 및 전송 -->
+    <div id="inputArea">
+      <input type="text" id="messageInput" placeholder="Type your message here..." disabled />
+      <button id="sendButton" onclick="sendMessage()" disabled>Send</button>
+    </div>
+  </div>
+
+  <script>
+    let socket;
+    let username;
+    let messagesDiv = document.getElementById('messages');
+    let chatHeader = document.getElementById('chatHeader');
+    let messageInput = document.getElementById('messageInput');
+    let sendButton = document.getElementById('sendButton');
+    let usernameInput = document.getElementById('usernameInput');
+
+    // WebSocket 연결 및 사용자 이름 입력 처리
+    usernameInput.addEventListener('change', function () {
+      if (usernameInput.value.trim() !== '') {
+        username = usernameInput.value.trim();
+        chatHeader.textContent = `WebSocket Chat - ${username}`;
+        usernameInput.disabled = true;
+        messageInput.disabled = false;
+        sendButton.disabled = false;
+
+        // WebSocket 연결
+        socket = new WebSocket('ws://127.0.0.1:8082/ws');
+
+        // WebSocket 연결이 열렸을 때
+        socket.onopen = function (event) {
+          addMessage(`You (${username}) connected`, 'sent');
+        };
+
+        // 서버로부터 메시지를 수신했을 때
+        socket.onmessage = function (event) {
+          let data = event.data;
+          let messageParts = data.split(':');
+          let sender = messageParts[0].trim();
+          let message = messageParts.slice(1).join(':').trim();
+
+          // 상대방이 보낸 메시지만 왼쪽에 표시
+          if (sender !== username) {
+            addMessage(`${sender}: ${message}`, 'received');
+          }
+        };
+
+        // WebSocket 연결이 닫혔을 때
+        socket.onclose = function (event) {
+          addMessage('WebSocket connection closed', 'received');
+        };
+
+        // WebSocket 오류 발생 시
+        socket.onerror = function (error) {
+          addMessage('WebSocket error: ' + error.message, 'received');
+        };
+      }
+    });
+
+    // 메시지를 화면에 추가하는 함수
+    function addMessage(message, type) {
+      let p = document.createElement('p');
+      p.classList.add('message', type);
+      p.textContent = message;
+      messagesDiv.appendChild(p);
+      messagesDiv.scrollTop = messagesDiv.scrollHeight; // 스크롤을 가장 아래로 이동
+    }
+
+    // 메시지 전송 함수
+    function sendMessage() {
+      let message = messageInput.value;
+      if (message && socket && username) {
+        // 메시지를 보냄
+        let jsonMessage = JSON.stringify({
+          username: username,
+          message: message
+        });
+        socket.send(jsonMessage)
+        addMessage(`You: ${message}`, 'sent'); // 보낸 메시지는 오른쪽에 표시
+        messageInput.value = null; // 입력창을 비움
+      }
+    }
+
+    messageInput.addEventListener('keyup', function (event) {
+      if (event.key === 'Enter') {
+        event.preventDefault(); // 기본 동작 방지
+        sendMessage();
+      }
+    });
+  </script>
+
+</body>
+
+</html>
