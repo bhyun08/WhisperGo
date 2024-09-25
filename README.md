@@ -1,0 +1,2 @@
+# WhisperGo
+Anonymous chat platform 👻
